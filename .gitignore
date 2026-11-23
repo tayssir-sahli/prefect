@@ -1,0 +1,5 @@
+venv/
+adult_data/
+data/
+__pycache__/
+*.joblib
