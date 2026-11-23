@@ -27,7 +27,7 @@ from model_pipeline import (
 )
 
 # Les étapes qualité/sécurité ne ciblent que ces fichiers (pas venv/, adult_data/...)
-PROJECT_FILES = ["model_pipeline.py", "main.py", "pipeline_prefect.py"]
+PROJECT_FILES = ["model_pipeline.py", "main.py", "pipeline_prefect.py", "app.py"]
 DATA_PATH = "adult.zip"
 MODEL_PATH = "model.joblib"
 
@@ -157,6 +157,25 @@ def clean_task():
             os.remove(path)
 
 
+@task(name="Lancement de l'API (FastAPI)")
+def run_api(host="127.0.0.1", port=8000):
+    """Démarre l'API avec uvicorn (Ctrl+C pour arrêter)."""
+    get_run_logger().info("API disponible sur http://%s:%s/docs", host, port)
+    subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app:app",
+            "--host",
+            host,
+            "--port",
+            str(port),
+        ],
+        check=False,
+    )
+
+
 # ----------------------------------------------------------------- FLOWS
 @flow(name="install")
 def install_flow():
@@ -219,6 +238,12 @@ def clean_flow():
     clean_task()
 
 
+@flow(name="api")
+def api_flow():
+    """Flow : lancement de l'API FastAPI."""
+    run_api()
+
+
 FLOWS = {
     "all": all_flow,
     "install": install_flow,
@@ -228,6 +253,7 @@ FLOWS = {
     "evaluate": evaluate_flow,
     "predict": predict_flow,
     "clean": clean_flow,
+    "api": api_flow,
 }
 
 
@@ -242,7 +268,7 @@ def main():
     kwargs = {}
     if args.flow in ("all", "train", "entrainement"):
         kwargs["model_type"] = args.model_type
-    if args.flow not in ("install", "code", "clean"):
+    if args.flow not in ("install", "code", "clean", "api"):
         kwargs["data_path"] = args.data
     FLOWS[args.flow](**kwargs)
 
